@@ -1,60 +1,105 @@
 @echo off
 chcp 65001 >nul
 title Nebula Launcher Updater
+
+:: Sprawdz czy uruchomiono jako administrator
+net session >nul 2>&1
+if %errorlevel% NEQ 0 (
+    echo [INFO] Wymagane uprawnienia administratora...
+    powershell -Command "Start-Process '%~f0' -Verb runAs"
+    exit /b
+)
+
 setlocal EnableDelayedExpansion
 
 :: Konfiguracja
 set "UPDATE_URL=https://huggingface.co/datasets/qwdqdqwe/system-gier/resolve/main/Nebulauncher.exe"
 set "LAUNCHER_NAME=Nebulauncher.exe"
 set "DESKTOP_PATH=%USERPROFILE%\Desktop"
-set "LAUNCHER_PATH=%DESKTOP_PATH%\%LAUNCHER_NAME%"
+set "DESKTOP_EXE=%DESKTOP_PATH%\%LAUNCHER_NAME%"
+set "INSTALL_DIR=C:\Program Files (x86)\NebulaLauncher"
+set "INSTALL_EXE=%INSTALL_DIR%\%LAUNCHER_NAME%"
+set "OLD_FILE=%INSTALL_DIR%\Nebulauncher.exe.old"
 set "TEMP_FILE=%TEMP%\launcher_update_%RANDOM%.exe"
+
+:: Folder uzytkownika do wyczyszczenia
+set "USER_DIR=C:\Users\domru\NebulaLauncher"
 
 echo ========================================
 echo  Nebula Launcher Updater
 echo ========================================
 echo.
 
-:: Sprawdz czy katalog pulpitu istnieje
-if not exist "%DESKTOP_PATH%" (
-    echo [BLAD] Nie znaleziono pulpitu: %DESKTOP_PATH%
-    pause
-    exit /b 1
+:: USUN PLIKI Z FOLDERU UZYTKOWNIKA
+echo [INFO] Czyszcze pliki w %USER_DIR%...
+
+if exist "%USER_DIR%\auth_token.json" (
+    del /F /Q "%USER_DIR%\auth_token.json" >nul 2>&1
+    echo [OK] Usunieto auth_token.json
 )
 
-echo [OK] Pulpit: %DESKTOP_PATH%
+if exist "%USER_DIR%\games_cache.json" (
+    del /F /Q "%USER_DIR%\games_cache.json" >nul 2>&1
+    echo [OK] Usunieto games_cache.json
+)
 
-:: Zamknij launcher jesli dziala
+if exist "%USER_DIR%\launcher.db" (
+    del /F /Q "%USER_DIR%\launcher.db" >nul 2>&1
+    echo [OK] Usunieto launcher.db
+)
+
+echo.
+
+:: USUN STARY PLIK .old
+echo [INFO] Usuwam stary plik .old...
+
+if exist "%OLD_FILE%" (
+    echo [INFO] Znaleziono plik .old
+    
+    takeown /F "%OLD_FILE%" /A >nul 2>&1
+    icacls "%OLD_FILE%" /grant Administrators:F >nul 2>&1
+    attrib -R -S -H "%OLD_FILE%" >nul 2>&1
+    
+    del /F /Q "%OLD_FILE%" >nul 2>&1
+    
+    if exist "%OLD_FILE%" (
+        echo [OSTRZEZENIE] Nie udalo sie usunac .old
+    ) else (
+        echo [OK] Usunieto plik .old
+    )
+) else (
+    echo [OK] Brak pliku .old
+)
+
+echo.
+
+:: Zamknij launcher
 taskkill /F /IM "%LAUNCHER_NAME%" >nul 2>&1
 timeout /T 2 /NOBREAK >nul
 
-:: Pobierz - prostsza metoda z curl (Windows 10/11 ma curl)
+:: Pobierz
 echo [INFO] Pobieram plik...
 
-if exist "%TEMP_FILE%" del "%TEMP_FILE%" >nul 2>&1
+if exist "%TEMP_FILE%" del /F /Q "%TEMP_FILE%" >nul 2>&1
 
-:: Proba 1: curl (najszybszy)
 curl -L -o "%TEMP_FILE%" "%UPDATE_URL%" >nul 2>&1
 if %errorlevel% EQU 0 goto VERIFY
 
-:: Proba 2: powershell z -UseBasicParsing
 powershell -NoProfile -Command "try{Invoke-WebRequest -Uri '%UPDATE_URL%' -OutFile '%TEMP_FILE%' -UseBasicParsing -MaximumRedirection 5}catch{exit 1}" >nul 2>&1
 if %errorlevel% EQU 0 goto VERIFY
 
-:: Proba 3: bitsadmin
 bitsadmin /transfer nebula /download /priority normal "%UPDATE_URL%" "%TEMP_FILE%" >nul 2>&1
 if %errorlevel% EQU 0 goto VERIFY
 
-echo [BLAD] Wszystkie metody pobierania nieudane
+echo [BLAD] Pobieranie nieudane
 pause
 exit /b 1
 
 :VERIFY
 echo [OK] Plik pobrany
 
-:: Sprawdz czy plik istnieje i ma rozmiar
 if not exist "%TEMP_FILE%" (
-    echo [BLAD] Plik nie istnieje po pobraniu
+    echo [BLAD] Brak pliku po pobraniu
     pause
     exit /b 1
 )
@@ -63,46 +108,75 @@ for %%F in ("%TEMP_FILE%") do set "FILE_SIZE=%%~zF"
 echo [INFO] Rozmiar: %FILE_SIZE% bajtow
 
 if %FILE_SIZE% LSS 1000 (
-    echo [BLAD] Plik za maly - prawdopodobnie blad 404 lub przekierowanie
-    type "%TEMP_FILE%"
-    del "%TEMP_FILE%" >nul 2>&1
+    echo [BLAD] Plik za maly
+    del /F /Q "%TEMP_FILE%" >nul 2>&1
     pause
     exit /b 1
 )
 
-:: Kopia zapasowa
-if exist "%LAUNCHER_PATH%" (
-    echo [INFO] Tworze kopie zapasowa...
-    copy /Y "%LAUNCHER_PATH%" "%LAUNCHER_PATH%.old" >nul 2>&1
+:: Instaluj
+echo [INFO] Instaluje do Program Files...
+
+if not exist "%INSTALL_DIR%" (
+    mkdir "%INSTALL_DIR%" >nul 2>&1
 )
 
-:: Instaluj na pulpit
-echo [INFO] Instaluje na pulpit...
-
-if exist "%LAUNCHER_PATH%" (
-    del "%LAUNCHER_PATH%" >nul 2>&1
+:: Usun obecna wersje
+if exist "%INSTALL_EXE%" (
+    echo [INFO] Usuwam obecna wersje...
+    
+    takeown /F "%INSTALL_EXE%" /A >nul 2>&1
+    icacls "%INSTALL_EXE%" /grant Administrators:F >nul 2>&1
+    
+    del /F /Q "%INSTALL_EXE%" >nul 2>&1
+    
+    if exist "%INSTALL_EXE%" (
+        echo [BLAD] Nie mozna usunac obecnej wersji
+        pause
+        exit /b 1
+    )
 )
 
-move /Y "%TEMP_FILE%" "%LAUNCHER_PATH%" >nul 2>&1
+echo [INFO] Kopiowanie nowej wersji...
+copy /Y "%TEMP_FILE%" "%INSTALL_EXE%" >nul 2>&1
 if %errorlevel% NEQ 0 (
-    copy /Y "%TEMP_FILE%" "%LAUNCHER_PATH%" >nul 2>&1
-    del "%TEMP_FILE%" >nul 2>&1
-)
-
-if not exist "%LAUNCHER_PATH%" (
-    echo [BLAD] Instalacja nieudana
+    echo [BLAD] Kopiowanie nieudane
+    del /F /Q "%TEMP_FILE%" >nul 2>&1
     pause
     exit /b 1
 )
 
+del /F /Q "%TEMP_FILE%" >nul 2>&1
+
+if not exist "%INSTALL_EXE%" (
+    echo [BLAD] Plik nie istnieje po instalacji
+    pause
+    exit /b 1
+)
+
+echo [OK] Zainstalowano: %INSTALL_EXE%
+
+:: Kopiuj na pulpit
+echo [INFO] Kopiowanie na pulpit...
+
+if exist "%DESKTOP_EXE%" (
+    del /F /Q "%DESKTOP_EXE%" >nul 2>&1
+)
+
+copy /Y "%INSTALL_EXE%" "%DESKTOP_EXE%" >nul 2>&1
+if %errorlevel% EQU 0 (
+    echo [OK] Skopiowano na pulpit
+) else (
+    echo [INFO] Pominieto pulpit
+)
+
 echo.
 echo ========================================
-echo  SUKCES! Plik zainstalowany na pulpicie:
-echo  %LAUNCHER_PATH%
+echo  SUKCES! Aktualizacja zainstalowana
 echo ========================================
 echo.
-echo Uruchamiam...
 
 timeout /T 1 >nul
-start "" "%LAUNCHER_PATH%"
+start "" "%INSTALL_EXE%"
+
 exit
