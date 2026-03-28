@@ -83,10 +83,8 @@ if %errorlevel% == 0 (
     set "CLOSED=0"
 )
 
-:: Czekaj na zamkniecie
 timeout /T 2 /NOBREAK >nul
 
-:: Sprawdz czy sie zamknal
 tasklist | findstr /I "%LAUNCHER_NAME%" >nul
 if %errorlevel% == 0 (
     echo [BLAD] Nie udalo sie zamknac launchera!
@@ -176,16 +174,9 @@ if not exist "%INSTALL_EXE%" (
     exit /b 1
 )
 
-echo [OK] Zainstalowano: %INSTALL_EXE%
+echo [OK] Zainstalowano
 
-echo.
-echo ========================================
-echo  SUKCES! Aktualizacja zainstalowana
-echo ========================================
-echo.
-echo Uruchamiam launcher...
-
-timeout /T 1 >nul
-start "" "%INSTALL_EXE%"
+:: Popup z informacja - PowerShell zamiast mshta
+powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('Aktualizacja zakonczona pomyslnie!`n`nNebula Launcher zostal zaktualizowany w:`n%INSTALL_EXE%`n`nMozesz teraz uruchomic launcher z Menu Start.', 'Nebula Launcher Updater', 'OK', 'Information')" >nul 2>&1
 
 exit
