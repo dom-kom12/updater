@@ -15,11 +15,9 @@ setlocal EnableDelayedExpansion
 :: Konfiguracja
 set "UPDATE_URL=https://huggingface.co/datasets/qwdqdqwe/system-gier/resolve/main/Nebulauncher.exe"
 set "LAUNCHER_NAME=Nebulauncher.exe"
-set "DESKTOP_PATH=%USERPROFILE%\Desktop"
-set "DESKTOP_EXE=%DESKTOP_PATH%\%LAUNCHER_NAME%"
 set "INSTALL_DIR=C:\Program Files (x86)\NebulaLauncher"
 set "INSTALL_EXE=%INSTALL_DIR%\%LAUNCHER_NAME%"
-set "OLD_FILE=%INSTALL_DIR%\Nebulauncher.exe.old"
+set "OLD_FILE=%INSTALL_DIR%\%LAUNCHER_NAME%.old"
 set "TEMP_FILE=%TEMP%\launcher_update_%RANDOM%.exe"
 
 :: Folder uzytkownika do wyczyszczenia
@@ -73,9 +71,33 @@ if exist "%OLD_FILE%" (
 
 echo.
 
-:: Zamknij launcher
-taskkill /F /IM "%LAUNCHER_NAME%" >nul 2>&1
+:: ZAMKNIJ LAUNCHER JESLI DZIALA
+echo [INFO] Sprawdzam czy launcher dziala...
+tasklist | findstr /I "%LAUNCHER_NAME%" >nul
+if %errorlevel% == 0 (
+    echo [INFO] Zamykanie launchera...
+    taskkill /F /IM "%LAUNCHER_NAME%" >nul 2>&1
+    set "CLOSED=1"
+) else (
+    echo [OK] Launcher nie dzialal
+    set "CLOSED=0"
+)
+
+:: Czekaj na zamkniecie
 timeout /T 2 /NOBREAK >nul
+
+:: Sprawdz czy sie zamknal
+tasklist | findstr /I "%LAUNCHER_NAME%" >nul
+if %errorlevel% == 0 (
+    echo [BLAD] Nie udalo sie zamknac launchera!
+    echo [INFO] Zamknij launcher recznie i sprobuj ponownie.
+    pause
+    exit /b 1
+)
+
+if %CLOSED% == 1 echo [OK] Launcher zamkniety
+
+echo.
 
 :: Pobierz
 echo [INFO] Pobieram plik...
@@ -156,25 +178,12 @@ if not exist "%INSTALL_EXE%" (
 
 echo [OK] Zainstalowano: %INSTALL_EXE%
 
-:: Kopiuj na pulpit
-echo [INFO] Kopiowanie na pulpit...
-
-if exist "%DESKTOP_EXE%" (
-    del /F /Q "%DESKTOP_EXE%" >nul 2>&1
-)
-
-copy /Y "%INSTALL_EXE%" "%DESKTOP_EXE%" >nul 2>&1
-if %errorlevel% EQU 0 (
-    echo [OK] Skopiowano na pulpit
-) else (
-    echo [INFO] Pominieto pulpit
-)
-
 echo.
 echo ========================================
 echo  SUKCES! Aktualizacja zainstalowana
 echo ========================================
 echo.
+echo Uruchamiam launcher...
 
 timeout /T 1 >nul
 start "" "%INSTALL_EXE%"
