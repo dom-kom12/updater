@@ -29,17 +29,7 @@ echo ========================================
 echo.
 
 :: USUN PLIKI Z FOLDERU UZYTKOWNIKA
-echo [INFO] Czyszcze pliki w %USER_DIR%...
-
-if exist "%USER_DIR%\auth_token.json" (
-    del /F /Q "%USER_DIR%\auth_token.json" >nul 2>&1
-    echo [OK] Usunieto auth_token.json
-)
-
-if exist "%USER_DIR%\games_cache.json" (
-    del /F /Q "%USER_DIR%\games_cache.json" >nul 2>&1
-    echo [OK] Usunieto games_cache.json
-)
+echo [INFO] Czyszcze plik w %USER_DIR%...
 
 if exist "%USER_DIR%\launcher.db" (
     del /F /Q "%USER_DIR%\launcher.db" >nul 2>&1
