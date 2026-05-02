@@ -28,20 +28,12 @@ echo  Nebula Launcher Updater
 echo ========================================
 echo.
 
-:: USUN PLIKI Z FOLDERU UZYTKOWNIKA (Z WYJATKIEM launcher.db)
-echo [INFO] Czyszcze pliki w %USER_DIR% (zachowuje launcher.db)...
+:: USUN PLIKI Z FOLDERU UZYTKOWNIKA
+echo [INFO] Czyszcze plik w %USER_DIR%...
 
 if exist "%USER_DIR%\launcher.db" (
-    echo [OK] Zachowano launcher.db
-) else (
-    echo [INFO] Brak pliku launcher.db
-)
-
-:: Usuwanie innych plików (oprócz launcher.db)
-for %%F in ("%USER_DIR%\*") do (
-    if /I not "%%~nxF"=="launcher.db" (
-        del /F /Q "%%F" >nul 2>&1
-    )
+    del /F /Q "%USER_DIR%\launcher.db" >nul 2>&1
+    echo [OK] Usunieto launcher.db
 )
 
 echo.
@@ -174,22 +166,7 @@ if not exist "%INSTALL_EXE%" (
 
 echo [OK] Zainstalowano
 
-:: AUTO-UPDATE - komunikat i automatyczne uruchomienie
-echo.
-echo ========================================
-echo  AKTUALIZACJA ZAKONCZONA!
-echo ========================================
-echo.
-echo Launcher zostal zaktualizowany pomyslnie.
-echo Zaraz nastapi automatyczne uruchomienie...
-echo.
-
-timeout /T 3 /NOBREAK >nul
-
-:: Uruchom launcher
-start "" "%INSTALL_EXE%"
-
-:: Komunikat PowerShell (pojawia sie po uruchomieniu)
-powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('Launcher zostal zaktualizowany!' + [Environment]::NewLine + [Environment]::NewLine + 'Launcher sam sie wlaczy za chwile...', 'Nebula Launcher - Aktualizacja', 'OK', 'Information')" >nul 2>&1
+:: Popup z informacja - PowerShell zamiast mshta
+powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('Aktualizacja zakonczona pomyslnie!`n`nNebula Launcher zostal zaktualizowany w:`n%INSTALL_EXE%`n`nMozesz teraz uruchomic launcher z Menu Start.', 'Nebula Launcher Updater', 'OK', 'Information')" >nul 2>&1
 
 exit
