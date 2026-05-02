@@ -2,52 +2,29 @@
 chcp 65001 >nul
 title Nebula Launcher Updater
 
-:: Sprawdz czy uruchomiono jako administrator
-net session >nul 2>&1
-if %errorlevel% NEQ 0 (
-    echo [INFO] Wymagane uprawnienia administratora...
-    powershell -Command "Start-Process '%~f0' -Verb runAs"
-    exit /b
-)
-
 setlocal EnableDelayedExpansion
 
 :: Konfiguracja
 set "UPDATE_URL=https://huggingface.co/datasets/qwdqdqwe/system-gier/resolve/main/Nebulauncher.exe"
 set "LAUNCHER_NAME=Nebulauncher.exe"
-set "INSTALL_DIR=C:\Program Files (x86)\NebulaLauncher"
+set "INSTALL_DIR=%USERPROFILE%\AppData\Local\NebulaLauncher"
 set "INSTALL_EXE=%INSTALL_DIR%\%LAUNCHER_NAME%"
 set "OLD_FILE=%INSTALL_DIR%\%LAUNCHER_NAME%.old"
 set "TEMP_FILE=%TEMP%\launcher_update_%RANDOM%.exe"
-
-:: Folder uzytkownika do wyczyszczenia
-set "USER_DIR=C:\Users\domru\NebulaLauncher"
+set "USER_DIR=%USERPROFILE%\NebulaLauncher"
 
 echo ========================================
 echo  Nebula Launcher Updater
 echo ========================================
 echo.
 
-:: USUN PLIKI Z FOLDERU UZYTKOWNIKA
-echo [INFO] Czyszcze plik w %USER_DIR%...
-
-if exist "%USER_DIR%\launcher.db" (
-    del /F /Q "%USER_DIR%\launcher.db" >nul 2>&1
-    echo [OK] Usunieto launcher.db
-)
-
-echo.
+:: NIE usuwam pliku launcher.db - ten krok został pominięty
 
 :: USUN STARY PLIK .old
 echo [INFO] Usuwam stary plik .old...
 
 if exist "%OLD_FILE%" (
     echo [INFO] Znaleziono plik .old
-    
-    takeown /F "%OLD_FILE%" /A >nul 2>&1
-    icacls "%OLD_FILE%" /grant Administrators:F >nul 2>&1
-    attrib -R -S -H "%OLD_FILE%" >nul 2>&1
-    
     del /F /Q "%OLD_FILE%" >nul 2>&1
     
     if exist "%OLD_FILE%" (
@@ -125,7 +102,7 @@ if %FILE_SIZE% LSS 1000 (
 )
 
 :: Instaluj
-echo [INFO] Instaluje do Program Files...
+echo [INFO] Instaluje do %INSTALL_DIR%...
 
 if not exist "%INSTALL_DIR%" (
     mkdir "%INSTALL_DIR%" >nul 2>&1
@@ -134,10 +111,6 @@ if not exist "%INSTALL_DIR%" (
 :: Usun obecna wersje
 if exist "%INSTALL_EXE%" (
     echo [INFO] Usuwam obecna wersje...
-    
-    takeown /F "%INSTALL_EXE%" /A >nul 2>&1
-    icacls "%INSTALL_EXE%" /grant Administrators:F >nul 2>&1
-    
     del /F /Q "%INSTALL_EXE%" >nul 2>&1
     
     if exist "%INSTALL_EXE%" (
@@ -166,7 +139,11 @@ if not exist "%INSTALL_EXE%" (
 
 echo [OK] Zainstalowano
 
-:: Popup z informacja - PowerShell zamiast mshta
-powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('Aktualizacja zakonczona pomyslnie!`n`nNebula Launcher zostal zaktualizowany w:`n%INSTALL_EXE%`n`nMozesz teraz uruchomic launcher z Menu Start.', 'Nebula Launcher Updater', 'OK', 'Information')" >nul 2>&1
+:: Popup z informacja
+powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('Aktualizacja zakonczona pomyslnie!', 'Nebula Launcher Updater', 'OK', 'Information')" >nul 2>&1
+
+:: AUTOMATYCZNIE URUCHOM LAUNCHER PO AKTUALIZACJI
+echo [INFO] Uruchamianie launchera...
+start "" "%INSTALL_EXE%"
 
 exit
