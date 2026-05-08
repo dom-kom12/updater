@@ -2,13 +2,13 @@
 chcp 65001 >nul
 title Nebula Launcher Updater
 
-:: Sprawdz czy uruchomiono jako administrator
-::net session >nul 2>&1
-::if %errorlevel% NEQ 0 (
-::    echo [INFO] Wymagane uprawnienia administratora...
-::    powershell -Command "Start-Process '%~f0' -Verb runAs"
-::    exit /b
-::)
+::Sprawdz czy uruchomiono jako administrator
+net session >nul 2>&1
+  if %errorlevel% NEQ 0 (
+      echo [INFO] Wymagane uprawnienia administratora...
+      powershell -Command "Start-Process '%~f0' -Verb runAs"
+      exit /b
+  )
 
 setlocal EnableDelayedExpansion
 
