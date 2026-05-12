@@ -20,26 +20,39 @@ echo.
 :LOOP
 echo [CHECK] Sprawdzam update...
 
-:: pobierz plik
-powershell -NoProfile -Command ^
-"try { Invoke-WebRequest '%URL%' -OutFile '%FILE%' -UseBasicParsing } catch { exit 1 }"
+:: =====================
+:: DOWNLOAD (FIXED)
+:: =====================
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+"$ProgressPreference='SilentlyContinue'; try { Invoke-WebRequest -Uri '%URL%' -OutFile '%FILE%' -UseBasicParsing } catch { exit 1 }"
 
 if not exist "%FILE%" (
     echo [ERROR] Download failed
     goto WAIT
 )
 
+:: =====================
+:: SIZE CHECK
+:: =====================
 for %%F in ("%FILE%") do set "SIZE=%%~zF"
-echo [INFO] Size: !SIZE!
+echo [INFO] Size: !SIZE! bytes
 
-:: minimal sanity check
 if !SIZE! LSS 1000000 (
     echo [WARN] File too small → skip
     del /F /Q "%FILE%" >nul 2>&1
     goto WAIT
 )
 
-:: sprawdź czy różni się od instalacji
+:: =====================
+:: INSTALL DIR CHECK
+:: =====================
+if not exist "%ProgramFiles(x86)%\NebulaLauncher" (
+    mkdir "%ProgramFiles(x86)%\NebulaLauncher" >nul 2>&1
+)
+
+:: =====================
+:: VERSION CHECK
+:: =====================
 if exist "%INSTALL%" (
     for %%F in ("%INSTALL%") do set "OLD=%%~zF"
 
@@ -47,7 +60,7 @@ if exist "%INSTALL%" (
         echo [UPDATE] Nowa wersja wykryta!
 
         taskkill /IM Nebulauncher.exe /F >nul 2>&1
-        timeout /T 2 >nul
+        timeout /t 2 /nobreak >nul
 
         copy /Y "%FILE%" "%INSTALL%" >nul 2>&1
 
@@ -57,12 +70,14 @@ if exist "%INSTALL%" (
     )
 ) else (
     echo [FIRST] Instalacja pierwsza
-    mkdir "%ProgramFiles(x86)%\NebulaLauncher" >nul 2>&1
     copy /Y "%FILE%" "%INSTALL%" >nul 2>&1
 )
 
+:: =====================
+:: CLEANUP
+:: =====================
 del /F /Q "%FILE%" >nul 2>&1
 
 :WAIT
-timeout /T %INTERVAL% /NOBREAK >nul
+timeout /t %INTERVAL% /nobreak >nul
 goto LOOP
