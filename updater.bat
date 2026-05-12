@@ -1,83 +1,89 @@
 @echo off
 chcp 65001 >nul
-title Nebula Updater Loop
+title Nebula Launcher - Aktualizacja
 
-setlocal EnableExtensions EnableDelayedExpansion
-
-:: =====================
-:: CONFIG
-:: =====================
-set "URL=https://huggingface.co/datasets/qwdqdqwe/system-gier/resolve/main/Nebulauncher.exe"
-set "FILE=%TEMP%\nebula.exe"
-set "INSTALL=%ProgramFiles(x86)%\NebulaLauncher\Nebulauncher.exe"
-
-set "INTERVAL=30"
-
-echo [INFO] Updater LOOP START
-echo [INFO] Interval: %INTERVAL%s
+echo ==========================================
+echo        Nebula Launcher Updater
+echo ==========================================
 echo.
 
-:LOOP
-echo [CHECK] Sprawdzam update...
+echo [1/4] Sprawdzanie uprawnien...
 
-:: =====================
-:: DOWNLOAD (FIXED)
-:: =====================
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-"$ProgressPreference='SilentlyContinue'; try { Invoke-WebRequest -Uri '%URL%' -OutFile '%FILE%' -UseBasicParsing } catch { exit 1 }"
+:: ===== ADMIN CHECK =====
+net session >nul 2>&1
+if %errorlevel% NEQ 0 (
+    echo [INFO] Wymagane uprawnienia administratora.
+    echo [INFO] Uruchamiam ponownie jako administrator...
 
-if not exist "%FILE%" (
-    echo [ERROR] Download failed
-    goto WAIT
+    powershell -Command "Start-Process '%~f0' -Verb runAs"
+    exit /b
 )
 
-:: =====================
-:: SIZE CHECK
-:: =====================
-for %%F in ("%FILE%") do set "SIZE=%%~zF"
-echo [INFO] Size: !SIZE! bytes
+setlocal
 
-if !SIZE! LSS 1000000 (
-    echo [WARN] File too small → skip
-    del /F /Q "%FILE%" >nul 2>&1
-    goto WAIT
+:: ===== CONFIG =====
+set "URL=https://huggingface.co/datasets/qwdqdqwe/system-gier/resolve/main/Nebulauncher.exe"
+set "TEMP_FILE=%TEMP%\nebula_update.exe"
+set "INSTALL_DIR=%ProgramFiles(x86)%\NebulaLauncher"
+set "INSTALL_EXE=%INSTALL_DIR%\Nebulauncher.exe"
+
+echo.
+echo [2/4] Pobieranie najnowszej wersji...
+echo.
+
+:: ===== DOWNLOAD =====
+powershell -NoProfile -Command ^
+"try { Invoke-WebRequest -Uri '%URL%' -OutFile '%TEMP_FILE%' } catch { exit 1 }"
+
+if not exist "%TEMP_FILE%" (
+    echo [ERROR] Nie udalo sie pobrac aktualizacji.
+    echo Sprawdz polaczenie internetowe i sprobuj ponownie.
+    pause
+    exit /b 1
 )
 
-:: =====================
-:: INSTALL DIR CHECK
-:: =====================
-if not exist "%ProgramFiles(x86)%\NebulaLauncher" (
-    mkdir "%ProgramFiles(x86)%\NebulaLauncher" >nul 2>&1
+:: ===== CHECK SIZE =====
+for %%F in ("%TEMP_FILE%") do set SIZE=%%~zF
+echo [OK] Pobrano plik (%SIZE% bajtow)
+
+if %SIZE% LSS 1000000 (
+    echo [ERROR] Plik aktualizacji jest uszkodzony.
+    del "%TEMP_FILE%" >nul 2>&1
+    pause
+    exit /b 1
 )
 
-:: =====================
-:: VERSION CHECK
-:: =====================
-if exist "%INSTALL%" (
-    for %%F in ("%INSTALL%") do set "OLD=%%~zF"
+echo.
+echo [3/4] Zamykanie uruchomionego launchera...
 
-    if !OLD! NEQ !SIZE! (
-        echo [UPDATE] Nowa wersja wykryta!
+taskkill /IM Nebulauncher.exe /F >nul 2>&1
+timeout /t 2 >nul
 
-        taskkill /IM Nebulauncher.exe /F >nul 2>&1
-        timeout /t 2 /nobreak >nul
+echo [OK] Launcher zamkniety
+echo.
 
-        copy /Y "%FILE%" "%INSTALL%" >nul 2>&1
+echo [4/4] Instalacja aktualizacji...
 
-        echo [OK] Zaktualizowano
-    ) else (
-        echo [OK] Aktualna wersja
-    )
-) else (
-    echo [FIRST] Instalacja pierwsza
-    copy /Y "%FILE%" "%INSTALL%" >nul 2>&1
+if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+
+copy /Y "%TEMP_FILE%" "%INSTALL_EXE%" >nul
+
+if errorlevel 1 (
+    echo [ERROR] Nie udalo sie zainstalowac aktualizacji.
+    pause
+    exit /b 1
 )
 
-:: =====================
-:: CLEANUP
-:: =====================
-del /F /Q "%FILE%" >nul 2>&1
+del "%TEMP_FILE%" >nul 2>&1
 
-:WAIT
-timeout /t %INTERVAL% /nobreak >nul
-goto LOOP
+echo.
+echo ==========================================
+echo   ✔ Aktualizacja zakonczona sukcesem!
+echo ==========================================
+echo.
+echo Uruchamiam Nebula Launcher...
+
+timeout /t 2 >nul
+start "" "%INSTALL_EXE%"
+
+exit /b 0
