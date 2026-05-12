@@ -1,126 +1,68 @@
 @echo off
 chcp 65001 >nul
-title Nebula Launcher Updater
+title Nebula Updater Loop
+
 setlocal EnableExtensions EnableDelayedExpansion
 
-:: ==============================
-:: ADMIN CHECK
-:: ==============================
-net session >nul 2>&1
-if %errorlevel% NEQ 0 (
-    echo [INFO] Wymagane uprawnienia administratora...
-    powershell -Command "Start-Process '%~f0' -Verb runAs"
-    exit /b
+:: =====================
+:: CONFIG
+:: =====================
+set "URL=https://huggingface.co/datasets/qwdqdqwe/system-gier/resolve/main/Nebulauncher.exe"
+set "FILE=%TEMP%\nebula.exe"
+set "INSTALL=%ProgramFiles(x86)%\NebulaLauncher\Nebulauncher.exe"
+
+set "INTERVAL=30"
+
+echo [INFO] Updater LOOP START
+echo [INFO] Interval: %INTERVAL%s
+echo.
+
+:LOOP
+echo [CHECK] Sprawdzam update...
+
+:: pobierz plik
+powershell -NoProfile -Command ^
+"try { Invoke-WebRequest '%URL%' -OutFile '%FILE%' -UseBasicParsing } catch { exit 1 }"
+
+if not exist "%FILE%" (
+    echo [ERROR] Download failed
+    goto WAIT
 )
 
-:: ==============================
-:: CONFIG
-:: ==============================
-set "UPDATE_URL=https://huggingface.co/datasets/qwdqdqwe/system-gier/resolve/main/Nebulauncher.exe"
-set "LAUNCHER_NAME=Nebulauncher.exe"
+for %%F in ("%FILE%") do set "SIZE=%%~zF"
+echo [INFO] Size: !SIZE!
 
-set "INSTALL_DIR=C:\Program Files (x86)\NebulaLauncher"
-set "INSTALL_EXE=%INSTALL_DIR%\%LAUNCHER_NAME%"
+:: minimal sanity check
+if !SIZE! LSS 1000000 (
+    echo [WARN] File too small → skip
+    del /F /Q "%FILE%" >nul 2>&1
+    goto WAIT
+)
 
-set "OLD_FILE=%INSTALL_DIR%\%LAUNCHER_NAME%.old"
-set "TEMP_FILE=%TEMP%\nebula_update_%RANDOM%.exe"
+:: sprawdź czy różni się od instalacji
+if exist "%INSTALL%" (
+    for %%F in ("%INSTALL%") do set "OLD=%%~zF"
 
-set "USER_DIR=%USERPROFILE%\NebulaLauncher"
+    if !OLD! NEQ !SIZE! (
+        echo [UPDATE] Nowa wersja wykryta!
 
-echo ========================================
-echo  Nebula Launcher Updater v2.1
-echo ========================================
-echo.
+        taskkill /IM Nebulauncher.exe /F >nul 2>&1
+        timeout /T 2 >nul
 
-echo [INFO] Dane użytkownika: %USER_DIR%
-echo.
+        copy /Y "%FILE%" "%INSTALL%" >nul 2>&1
 
-:: ==============================
-:: CLEAN OLD FILE
-:: ==============================
-if exist "%OLD_FILE%" (
-    echo [INFO] Usuwam stary plik .old...
-
-    attrib -R -S -H "%OLD_FILE%" >nul 2>&1
-    del /F /Q "%OLD_FILE%" >nul 2>&1
-
-    if exist "%OLD_FILE%" (
-        echo [WARN] Nie udalo sie usunac .old
+        echo [OK] Zaktualizowano
     ) else (
-        echo [OK] Usunieto .old
+        echo [OK] Aktualna wersja
     )
 ) else (
-    echo [OK] Brak .old
+    echo [FIRST] Instalacja pierwsza
+    mkdir "%ProgramFiles(x86)%\NebulaLauncher" >nul 2>&1
+    copy /Y "%FILE%" "%INSTALL%" >nul 2>&1
 )
 
-echo.
+del /F /Q "%FILE%" >nul 2>&1
 
-:: ==============================
-:: CLOSE LAUNCHER
-:: ==============================
-echo [INFO] Sprawdzam launcher...
-
-taskkill /IM "%LAUNCHER_NAME%" /F >nul 2>&1
-
-timeout /T 2 /NOBREAK >nul
-
-:: ==============================
-:: DOWNLOAD
-:: ==============================
-echo [INFO] Pobieranie update...
-
-del /F /Q "%TEMP_FILE%" >nul 2>&1
-
-powershell -NoProfile -Command ^
-"try { Invoke-WebRequest -Uri '%UPDATE_URL%' -OutFile '%TEMP_FILE%' -UseBasicParsing } catch { exit 1 }"
-
-if not exist "%TEMP_FILE%" (
-    echo [BLAD] Pobieranie nieudane
-    exit /b 1
-)
-
-for %%F in ("%TEMP_FILE%") do set "SIZE=%%~zF"
-echo [INFO] Rozmiar: !SIZE! bytes
-
-if !SIZE! LSS 1000000 (
-    echo [BLAD] Plik podejrzanie maly
-    del /F /Q "%TEMP_FILE%" >nul 2>&1
-    exit /b 1
-)
-
-echo [OK] Pobrano poprawnie
-echo.
-
-:: ==============================
-:: INSTALL
-:: ==============================
-if not exist "%INSTALL_DIR%" (
-    mkdir "%INSTALL_DIR%" >nul 2>&1
-)
-
-if exist "%INSTALL_EXE%" (
-    echo [INFO] Usuwam stara wersje...
-    attrib -R -S -H "%INSTALL_EXE%" >nul 2>&1
-    del /F /Q "%INSTALL_EXE%" >nul 2>&1
-)
-
-copy /Y "%TEMP_FILE%" "%INSTALL_EXE%" >nul 2>&1
-
-if not exist "%INSTALL_EXE%" (
-    echo [BLAD] Instalacja nieudana
-    exit /b 1
-)
-
-echo [OK] Zainstalowano
-del /F /Q "%TEMP_FILE%" >nul 2>&1
-
-echo.
-
-:: ==============================
-:: START APP
-:: ==============================
-echo [INFO] Start launchera...
-start "" "%INSTALL_EXE%"
-
-echo [OK] Gotowe
-exit /b 0
+:WAIT
+timeout /T %INTERVAL% /NOBREAK >nul
+goto LOOP
